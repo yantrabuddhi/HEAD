@@ -91,11 +91,19 @@ int get_overlap_id(Rect rct)
       return frv[i].id;
     }
   }
+  return 0;
 }
+
 std::string get_name_from_gallery(int idx)
 {
-  //
+  //check if file.name is same as name in gallery
+  std::map<string,string>::iterator it;
+  it=file2name.find(target[idx].file.name);
+  if (it != file2name.end())
+    return file2name[target[idx].file.name];
+  return "stranger";
 }
+
 void image_cb(const sensor_msgs::ImageConstPtr& msg)
 {
   cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::RGB8);
@@ -220,7 +228,7 @@ int main(int argc, char** argv)
   br::Globals->enrollAll = false;
   //
   ros::Subscriber sub = n.subscribe("/camera/image_raw", 2, image_cb);
-  ros::Subscriber sub_face = (nh_).subscribe("/camera/face_locations", 1, &faces_cb, this);
+  ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb, this);
   //need rect of face
   ros::spin();
   br::Context::finalize();
