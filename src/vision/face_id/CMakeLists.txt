@@ -11,7 +11,14 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sensor_msgs
+  cmt_tracker_msgs
+  pi_face_tracker
+  cv_bridge
 )
+
+set(BR_SHARE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/share/openbr")
+set(CMAKE_MODULE_PATH "${BR_SHARE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+find_package(OpenBR REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -49,11 +56,11 @@ qt5_use_modules(face_check ${QT_DEPENDENCIES})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+ add_message_files(
+   FILES
+   face_id.msg
+   faces_ids.msg
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -70,10 +77,10 @@ qt5_use_modules(face_check ${QT_DEPENDENCIES})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   geometry_msgs std_msgs cmt_tracker_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,7 +114,7 @@ qt5_use_modules(face_check ${QT_DEPENDENCIES})
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES face_id
-#  CATKIN_DEPENDS geometry_msgs image_transport message_generation roscpp std_msgs
+  CATKIN_DEPENDS geometry_msgs image_transport message_generation roscpp std_msgs cmt_tracker_msgs
 #  DEPENDS system_lib
 )
 
@@ -144,6 +151,7 @@ add_executable(face_id_node src/face_id_node.cpp)
    ${catkin_LIBRARIES}
    ${Qt5Core_QTMAIN_LIBRARIES}
    ${OpenCV_LIBS}
+   ${OPENBR_LIBS}
  )
 
 #############

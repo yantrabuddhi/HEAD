@@ -37,6 +37,9 @@ using namespace cv;
 QSharedPointer<br::Transform> transform = br::Transform::fromAlgorithm("FaceRecognition");
 QSharedPointer<br::Distance> distance = br::Distance::fromAlgorithm("FaceRecognition");
 std::mutex z_mutex;
+std::string gDir,gInfo;
+
+ros::Publisher faces_pub;
 
 string face_cascade_name = "haarcascade_frontalface_alt.xml";
 string gallery_path;
@@ -139,6 +142,7 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     fc_ids.push_back(fid);
   }
   //publish message
+  faces_pub.publish(fc_ids);
 }
 
 string trim(const string& str)
@@ -168,7 +172,7 @@ void faces_cb(const pi_face_tracker_msgs::Faces msg)
   const float pic_width=640.0;//pixels
   const float pic_height=480.0;
   const float fov=1.42;//radians
-  const float fsz=0.17;//meters face width
+  //const float fsz=0.17;//meters face width
   const double k_const = (double)pic_width / (double) (2.0*(tan(fov/2.0)));
   float xx,yy,zz;
   face_pix fr;
@@ -190,11 +194,11 @@ void faces_cb(const pi_face_tracker_msgs::Faces msg)
   }
 }
 
-void load_name_image_map()
+void load_name_image_map(string gfile)
 {
   //open gallery file from path
   string line;
-  ifstream gallery_file(gallery_path);
+  ifstream gallery_file(gfile);
   gallery_file.open();
   while ( getline (myfile,line) )
   {
@@ -207,11 +211,15 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "faceid");
   ros::NodeHandle n;
-  if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading face cascade\n"); return -1; };
+  if( !face_cascade.load( face_cascade_name ) ){ cout<<"--(!)Error loading face cascade\n"; return -1; };
   //if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
 
+  //param to know path of gallery and gallery description file
+  n.param<string>("gallery_dir",gDir,"gallery_dir")
+  n.param<string>("gallery_info_file",gInfo,"gallery_dir/gallery_info.txt");
   //Load image name map
-  load_name_image_map();
+  load_name_image_map(gInfo);
+  if (file2name.size()<1){cout<<"--(!)Error loading Gallery Info file.\n"; return -1;};
   //
   br::Context::initialize(argc, argv);
 
@@ -220,7 +228,7 @@ int main(int argc, char** argv)
   distance = br::Distance::fromAlgorithm("FaceRecognition");
 
   // Initialize templates
-  br::TemplateList target = br::TemplateList::fromGallery("../data/MEDS/img");
+  br::TemplateList target = br::TemplateList::fromGallery(gDir);
 
   // Enroll templates
   br::Globals->enrollAll = true; // Enroll 0 or more faces per image
@@ -230,6 +238,7 @@ int main(int argc, char** argv)
   ros::Subscriber sub = n.subscribe("/camera/image_raw", 2, image_cb);
   ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb, this);
   //need rect of face
+  faces_pub = n.advertise<face_id_msgs::faces_ids>("/camera/face_recognition", 1)
   ros::spin();
   br::Context::finalize();
   return 0;
