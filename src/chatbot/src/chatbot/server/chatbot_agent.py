@@ -95,14 +95,8 @@ def list_character(lang, sid):
     if sess is None:
         return []
     characters = get_responding_characters(lang, sid)
-    if hasattr(sess.sdata, 'weights') and sess.sdata.weights:
-        weights = []
-        for c in characters:
-            weights.append(sess.sdata.weights.get(c.id) or 0)
-        return [(c.id, w, c.level, c.dynamic_level) for c, w in zip(
-                    characters, weights)]
-    else:
-        return [(c.id, c.weight, c.level, c.dynamic_level) for c in characters]
+    weights = get_weights(characters, sess)
+    return [(c.id, w, c.level, c.dynamic_level) for c, w in zip(characters, weights)]
 
 
 def list_character_names():
@@ -137,6 +131,18 @@ def set_weights(param, lang, sid):
 
     sess.sdata.weights = weights
     return True, "Weights are updated"
+
+def get_weights(characters, sess):
+    weights = []
+    if hasattr(sess.sdata, 'weights') and sess.sdata.weights:
+        for c in characters:
+            if c.id in sess.sdata.weights:
+                weights.append(sess.sdata.weights.get(c.id))
+            else:
+                weights.append(c.weight)
+    else:
+        weights = [c.weight for c in characters]
+    return weights
 
 def set_context(prop, sid):
     sess = session_manager.get_session(sid)
@@ -195,13 +201,9 @@ def _ask_characters(characters, question, lang, sid, query):
     data = sess.get_session_data()
     user = getattr(data, 'user')
     botname = getattr(data, 'botname')
-    weights = []
-    if hasattr(data, 'weights') and data.weights:
-        for c in characters:
-            weights.append(data.weights.get(c.id) or 0)
-    else:
-        weights = [c.weight for c in characters]
+    weights = get_weights(characters, sess)
     weighted_characters = zip(characters, weights)
+    logger.info("Weights {}".format(weighted_characters))
 
     _question = preprocessing(question)
     response = {}
@@ -347,6 +349,9 @@ def _ask_characters(characters, question, lang, sid, query):
                     else:
                         cross_trace.append((c.id, 'priority', 'Pass through'))
                         cached_responses['pass'].append((response, _answer, c))
+                elif response.get('repeat'):
+                    cross_trace.append((c.id, 'priority', 'Repetitive answer'))
+                    cached_responses['repeat'].append((response, response.get('repeat'), c))
                 else:
                     cross_trace.append((c.id, 'priority', 'No answer'))
             elif _answer:
@@ -691,11 +696,16 @@ def reload_characters(**kwargs):
 def rebuild_cs_character(**kwargs):
     with sync:
         try:
-            for c in CHARACTERS:
+            botname=kwargs.get('botname')
+            characters=get_characters_by_name(botname)
+            if not characters:
+                logger.error("Can't find CS tier for {}".format(botname))
+            for c in characters:
                 if c.id == 'cs' and hasattr(c, 'rebuild'):
                     log = c.rebuild()
                     if 'ERROR SUMMARY' in log:
                         logger.error(log[log.index('ERROR SUMMARY'):])
+                    logger.info("Rebuilding chatscript for {} successfully".format(botname))
         except Exception as ex:
             logger.error("Rebuilding chatscript characters error {}".format(ex))
 
