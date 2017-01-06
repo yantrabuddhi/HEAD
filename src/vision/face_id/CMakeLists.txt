@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(face_id)
 
+add_definitions(-mavx)
+add_definitions(-std=c++11)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -11,11 +13,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sensor_msgs
+  cv_bridge
   cmt_tracker_msgs
   pi_face_tracker
-  cv_bridge
 )
 
+find_package(Qt5 COMPONENTS Core Concurrent REQUIRED)
+#include(${QT_USE_FILE})
 set(BR_SHARE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/share/openbr")
 set(CMAKE_MODULE_PATH "${BR_SHARE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 find_package(OpenBR REQUIRED)
@@ -24,7 +28,6 @@ find_package(OpenBR REQUIRED)
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(OpenCV REQUIRED)
 set(QT_DEPENDENCIES Concurrent Core)
-qt5_use_modules(face_check ${QT_DEPENDENCIES})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -79,7 +82,7 @@ qt5_use_modules(face_check ${QT_DEPENDENCIES})
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
-   geometry_msgs std_msgs cmt_tracker_msgs
+   geometry_msgs std_msgs
  )
 
 ################################################
@@ -126,7 +129,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
-  ${catkin_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${Qt5_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -141,6 +144,7 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(face_id_node src/face_id_node.cpp)
+qt5_use_modules(face_id_node ${QT_DEPENDENCIES})
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above

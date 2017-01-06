@@ -1,3 +1,3 @@
-int face_id
-float confidence
+int32 face_id
+float64 confidence
 string name

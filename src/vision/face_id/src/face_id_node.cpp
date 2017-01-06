@@ -18,6 +18,7 @@
 //openbr
 #include <openbr/openbr_plugin.h>
 #include <QMutex>
+#include <QString>
 
 #include <iostream>
 #include <fstream>
@@ -26,7 +27,7 @@
 #include <map>
 #include <mutex>
 using namespace std;
-using namespace cv;
+//using namespace cv;
 
 //ASSUMES SAME IMAGE RESOLUTION IMAGE REFERENCE AS CMT TRACKER
 
@@ -34,20 +35,21 @@ using namespace cv;
 //subscribe to camera and tracked faces
 //if recognized faces in camera image overlap with tracked faces then map them in ros msg
 
-QSharedPointer<br::Transform> transform = br::Transform::fromAlgorithm("FaceRecognition");
-QSharedPointer<br::Distance> distance = br::Distance::fromAlgorithm("FaceRecognition");
+QSharedPointer<br::Transform> transformb;// = br::Transform::fromAlgorithm("FaceRecognition");
+QSharedPointer<br::Distance> distanceb;// = br::Distance::fromAlgorithm("FaceRecognition");
 std::mutex z_mutex;
 std::string gDir,gInfo;
 
 ros::Publisher faces_pub;
+br::TemplateList target;
 
 string face_cascade_name = "haarcascade_frontalface_alt.xml";
 string gallery_path;
 std::map<string,string> file2name;
 //String eyes_cascade_name = "haarcascade_eye_tree_eyeglasses.xml";
-CascadeClassifier face_cascade;
+cv::CascadeClassifier face_cascade;
 //CascadeClassifier eyes_cascade;
-std::vector<Rect> faces;
+std::vector<cv::Rect> faces;
 struct face_pix{
   int id;
   int fx;
@@ -59,32 +61,32 @@ std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
 {
   //
   std::vector<cv::Mat> fcs;
-  equalizeHist( frame_gray, frame_gray );
-  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
+  cv::equalizeHist( frame_gray, frame_gray );
+  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
   for( size_t i = 0; i < faces.size(); i++ )
   {
     //
-    Mat faceROI = frame_gray( faces[i] );
+    cv::Mat faceROI = frame_gray( faces[i] );
     fcs.push_back(faceROI);
   }
   return fcs;
 }
 
-bool is_point_in_rect(float x,float y,Rect rct)
+bool is_point_in_rect(float x,float y,cv::Rect rct)
 {
   return ((x>=rct.x) && (x<=rct.x+rct.width) && (y>=rct.y) && (y<=rct.y+rct.height));
 }
-bool rects_overlap(Rect r1,Rect r2)
+bool rects_overlap(cv::Rect r1,cv::Rect r2)
 {
   return (
     is_point_in_rect(r1.x,r1.y,r2)||
     is_point_in_rect(r1.x+r1.width,r1.y,r2)||
     is_point_in_rect(r1.x,r1.y+r1.height,r2)||
     is_point_in_rect(r1.x+r1.width,r1.y+r1.height,r2)
-  )
+  );
 }
 
-int get_overlap_id(Rect rct)
+int get_overlap_id(cv::Rect rct)
 {
   std::lock_guard<std::mutex> guard(z_mutex);
   for (int  i=0;i<frv.size();i++)
@@ -101,9 +103,9 @@ std::string get_name_from_gallery(int idx)
 {
   //check if file.name is same as name in gallery
   std::map<string,string>::iterator it;
-  it=file2name.find(target[idx].file.name);
+  it=file2name.find(target[idx].file.name.toStdString());
   if (it != file2name.end())
-    return file2name[target[idx].file.name];
+    return file2name[target[idx].file.name.toStdString()];
   return "stranger";
 }
 
@@ -116,13 +118,14 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
   //find faces and pass each face with co-ordinates for recognition
   cv::cvtColor(img, img_gray, CV_BGR2GRAY);
   std::vector<cv::Mat> fcs=getFaces(img_gray);
-  face_id_msgs::faces_ids fc_ids;
+  //face_id::faces_ids fc_ids;
+  std::vector<face_id::face_id> fc_ids;
   for( size_t i = 0; i < fcs.size(); i++ )
   {
     br::Template query(fcs[i]);
-    query >> *transform;
+    query >> *transformb;
     // Compare templates
-    QList<float> scores = distance->compare(target, query);
+    QList<float> scores = distanceb->compare(target, query);
     //FORM ROS MSG
     float score=scores[0];
     int index=0;
@@ -135,14 +138,16 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
       }
     }
     //update message to send
-    face_id_msgs::face_id fid;
+    face_id::face_id fid;
     fid.face_id=get_overlap_id(faces[index]);
     fid.name=(score>0.1)?get_name_from_gallery(index):"stranger";
     fid.confidence=score;
     fc_ids.push_back(fid);
   }
   //publish message
-  faces_pub.publish(fc_ids);
+  face_id::faces_ids fi;
+  fi.faces=fc_ids;
+  faces_pub.publish(fi);
 }
 
 string trim(const string& str)
@@ -167,7 +172,7 @@ void map_image2name(string line)
   file2name[file]=name;
 }
 
-void faces_cb(const pi_face_tracker_msgs::Faces msg)
+void faces_cb(const pi_face_tracker::FacesConstPtr& msg)
 {
   const float pic_width=640.0;//pixels
   const float pic_height=480.0;
@@ -179,14 +184,14 @@ void faces_cb(const pi_face_tracker_msgs::Faces msg)
   //need tracking id and rect
   std::lock_guard<std::mutex> guard(z_mutex);
   frv.clear();
-  for (int i=0;i<msg.faces.size();i++)
+  for (int i=0;i<msg->faces.size();i++)
   {
     //
-    fr.id=msg.faces[i].id;
+    fr.id=msg->faces[i].id;
     //convert x,y to pixels from 3d xyz
-    xx=msg.faces[i].point.x;//y
-    yy=msg.faces[i].point.y;//z
-    zz=msg.faces[i].point.z;//x
+    xx=msg->faces[i].point.x;//y
+    yy=msg->faces[i].point.y;//z
+    zz=msg->faces[i].point.z;//x
     double dp=xx/k_const;
     fr.fx=(pic_width/2.0)-(zz/dp);
     fr.fy=(pic_height/2.0)-(yy/dp);
@@ -199,8 +204,8 @@ void load_name_image_map(string gfile)
   //open gallery file from path
   string line;
   ifstream gallery_file(gfile);
-  gallery_file.open();
-  while ( getline (myfile,line) )
+  //gallery_file.open();
+  while ( getline (gallery_file,line) )
   {
     map_image2name(line);
   }
@@ -215,7 +220,7 @@ int main(int argc, char** argv)
   //if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
 
   //param to know path of gallery and gallery description file
-  n.param<string>("gallery_dir",gDir,"gallery_dir")
+  n.param<string>("gallery_dir",gDir,"gallery_dir");
   n.param<string>("gallery_info_file",gInfo,"gallery_dir/gallery_info.txt");
   //Load image name map
   load_name_image_map(gInfo);
@@ -224,21 +229,21 @@ int main(int argc, char** argv)
   br::Context::initialize(argc, argv);
 
   // Retrieve classes for enrolling and comparing templates using the FaceRecognition algorithm
-  transform = br::Transform::fromAlgorithm("FaceRecognition");
-  distance = br::Distance::fromAlgorithm("FaceRecognition");
+  transformb = br::Transform::fromAlgorithm("FaceRecognition");
+  distanceb = br::Distance::fromAlgorithm("FaceRecognition");
 
   // Initialize templates
-  br::TemplateList target = br::TemplateList::fromGallery(gDir);
+  target = br::TemplateList::fromGallery(gDir.c_str());
 
   // Enroll templates
   br::Globals->enrollAll = true; // Enroll 0 or more faces per image
-  target >> *transform;
+  target >> *transformb;
   br::Globals->enrollAll = false;
   //
   ros::Subscriber sub = n.subscribe("/camera/image_raw", 2, image_cb);
-  ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb, this);
+  ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb);
   //need rect of face
-  faces_pub = n.advertise<face_id_msgs::faces_ids>("/camera/face_recognition", 1)
+  faces_pub = n.advertise<face_id::faces_ids>("/camera/face_recognition", 1);
   ros::spin();
   br::Context::finalize();
   return 0;
