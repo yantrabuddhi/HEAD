@@ -9,7 +9,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <pi_face_tracker/Face.h>
 #include <pi_face_tracker/Faces.h>
-#include <face_id/face_id.h>
+#include <face_id/f_id.h>
 #include <face_id/faces_ids.h>
 
 #include <std_msgs/Bool.h>
@@ -154,11 +154,12 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
       }
     }
     //update message to send
-    face_id::face_id fid;
-    fid.face_id=get_overlap_id(faces[index]);
-    fid.name=(score>0.1)?get_name_from_gallery(index):"stranger";
+    face_id::f_id fid;
+    fid.id=get_overlap_id(faces[index]);
+    fid.name=(score>0.5)?get_name_from_gallery(index):"stranger";
     fid.confidence=score;
     fc_ids.faces.push_back(fid);
+    //std::cout<<"\n"<<target[index].file.name.toStdString()<<"\n";
   }
   //publish message
   if (fc_ids.faces.size()<1) return;

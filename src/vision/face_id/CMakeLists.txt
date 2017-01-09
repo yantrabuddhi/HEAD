@@ -61,7 +61,7 @@ set(QT_DEPENDENCIES Concurrent Core)
 ## Generate messages in the 'msg' folder
  add_message_files(
    FILES
-   face_id.msg
+   f_id.msg
    faces_ids.msg
  )
 
