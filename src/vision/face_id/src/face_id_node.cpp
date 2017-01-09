@@ -125,8 +125,8 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
   //find faces and pass each face with co-ordinates for recognition
   cv::cvtColor(img, img_gray, CV_BGR2GRAY);
   std::vector<cv::Mat> fcs=getFaces(img_gray);
-  //face_id::faces_ids fc_ids;
-  std::vector<face_id::face_id> fc_ids;
+  face_id::faces_ids fc_ids;
+  //std::vector<face_id::face_id> fc_ids;
 /*
   if (fcs.size()<1){cout<<"no image...\n";return;}
   cout<<"image..."<<fcs.size()<<"\n";
@@ -137,19 +137,11 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
 */
   for( size_t i = 0; i < fcs.size(); i++ )
   {
-    cout<<"--i="<<i<<"\n";
-    cv::Mat mt=fcs[i].clone();
+    cv::Mat mt=fcs[i].clone();//mat needs to be continuous
     br::Template query(mt);
-    //br::Template query(fcs[i]);
-    //test
-    //string fl=gDir+"/putin-1.jpg";
-    //br::Template query(fl.c_str());
-    cout<<"@1\n";
     query >> *transformb;//why error here?
-    cout<<"@2\n";
     // Compare templates
     QList<float> scores = distanceb->compare(target, query);
-    cout<<"@4\n";
     //FORM ROS MSG
     float score=scores[0];
     int index=0;
@@ -161,19 +153,21 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
         index=a;
       }
     }
-    cout<<"@5\n";
     //update message to send
     face_id::face_id fid;
     fid.face_id=get_overlap_id(faces[index]);
     fid.name=(score>0.1)?get_name_from_gallery(index):"stranger";
     fid.confidence=score;
-    fc_ids.push_back(fid);
+    fc_ids.faces.push_back(fid);
   }
   //publish message
-  if (fc_ids.size()<1) return;
+  if (fc_ids.faces.size()<1) return;
+  faces_pub.publish(fc_ids);
+  /*
   face_id::faces_ids fi;
-  fi.faces=fc_ids;
+  fi.faces=fc_ids; wrong
   faces_pub.publish(fi);
+  */
 }
 
 string trim(const string& str)
