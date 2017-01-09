@@ -62,11 +62,18 @@ std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
   //
   std::vector<cv::Mat> fcs;
   cv::equalizeHist( frame_gray, frame_gray );
-  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
+  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(64, 64) );//30,30
   for( size_t i = 0; i < faces.size(); i++ )
   {
     //
+    /*
+    faces[i].x=faces[i].x-10;
+    faces[i].y=faces[i].y-10;
+    faces[i].width=faces[i].width+20;
+    faces[i].height=faces[i].height+20;
+    */
     cv::Mat faceROI = frame_gray( faces[i] );
+    //cv::resize(faceROI,faceROI,cv:Size(80,))
     fcs.push_back(faceROI);
   }
   return fcs;
@@ -120,12 +127,29 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
   std::vector<cv::Mat> fcs=getFaces(img_gray);
   //face_id::faces_ids fc_ids;
   std::vector<face_id::face_id> fc_ids;
+/*
+  if (fcs.size()<1){cout<<"no image...\n";return;}
+  cout<<"image..."<<fcs.size()<<"\n";
+  cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE );// Create a window for display.
+  cv::imshow( "Display window", fcs[0] );                   // Show our image inside it.
+  cv::waitKey(1);
+  return;
+*/
   for( size_t i = 0; i < fcs.size(); i++ )
   {
-    br::Template query(fcs[i]);
-    query >> *transformb;
+    cout<<"--i="<<i<<"\n";
+    cv::Mat mt=fcs[i].clone();
+    br::Template query(mt);
+    //br::Template query(fcs[i]);
+    //test
+    //string fl=gDir+"/putin-1.jpg";
+    //br::Template query(fl.c_str());
+    cout<<"@1\n";
+    query >> *transformb;//why error here?
+    cout<<"@2\n";
     // Compare templates
     QList<float> scores = distanceb->compare(target, query);
+    cout<<"@4\n";
     //FORM ROS MSG
     float score=scores[0];
     int index=0;
@@ -137,6 +161,7 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
         index=a;
       }
     }
+    cout<<"@5\n";
     //update message to send
     face_id::face_id fid;
     fid.face_id=get_overlap_id(faces[index]);
@@ -145,6 +170,7 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     fc_ids.push_back(fid);
   }
   //publish message
+  if (fc_ids.size()<1) return;
   face_id::faces_ids fi;
   fi.faces=fc_ids;
   faces_pub.publish(fi);
@@ -216,12 +242,13 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "faceid");
   ros::NodeHandle n;
-  if( !face_cascade.load( face_cascade_name ) ){ cout<<"--(!)Error loading face cascade\n"; return -1; };
-  //if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
-
   //param to know path of gallery and gallery description file
   n.param<string>("gallery_dir",gDir,"gallery_dir");
   n.param<string>("gallery_info_file",gInfo,"gallery_dir/gallery_info.txt");
+  n.param<string>("haarcascade_frontalface_alt",face_cascade_name,"haarcascade_frontalface_alt.xml");
+  if( !face_cascade.load( face_cascade_name ) ){ cout<<"--(!)Error loading face cascade\n"; return -1; };
+  //if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
+
   //Load image name map
   load_name_image_map(gInfo);
   if (file2name.size()<1){cout<<"--(!)Error loading Gallery Info file.\n"; return -1;};
@@ -234,7 +261,6 @@ int main(int argc, char** argv)
 
   // Initialize templates
   target = br::TemplateList::fromGallery(gDir.c_str());
-
   // Enroll templates
   br::Globals->enrollAll = true; // Enroll 0 or more faces per image
   target >> *transformb;
