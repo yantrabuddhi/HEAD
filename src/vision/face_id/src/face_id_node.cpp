@@ -72,8 +72,8 @@ std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
     faces[i].width=faces[i].width+20;
     faces[i].height=faces[i].height+20;
     */
-    cv::Rect rct(faces[i].x-faces[i].width*0.15,faces[i].y-faces[i].height*0.15,
-      faces[i].width+faces[i].width*2*0.15,faces[i].height+faces[i].height*2*0.15);
+    cv::Rect rct(faces[i].x-faces[i].width*0.25,faces[i].y-faces[i].height*0.25,
+      faces[i].width+faces[i].width*2*0.25,faces[i].height+faces[i].height*2*0.25);
     if (rct.x<0)rct.x=0;
     if (rct.y<0)rct.y=0;
     if (rct.x+rct.width>639)rct.width=639-rct.x;
@@ -162,9 +162,9 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     //update message to send
     face_id::f_id fid;
     fid.id=get_overlap_id(faces[index]);
-    fid.name=((score>0.77)?get_name_from_gallery(index):"stranger");
+    fid.name=((score>0.8)?get_name_from_gallery(index):"stranger");
     fid.confidence=score;
-    fc_ids.faces.push_back(fid);
+    if (score>0.8)fc_ids.faces.push_back(fid);
     //std::cout<<"\n"<<target[index].file.name.toStdString()<<"\n";
   }
   //publish message
