@@ -49,7 +49,7 @@ std::map<string,string> file2name;
 //String eyes_cascade_name = "haarcascade_eye_tree_eyeglasses.xml";
 cv::CascadeClassifier face_cascade;
 //CascadeClassifier eyes_cascade;
-std::vector<cv::Rect> faces;
+std::vector<cv::Rect> Rfaces;
 struct face_pix{
   int id;
   int fx;
@@ -61,42 +61,31 @@ std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
 {
   //
   std::vector<cv::Mat> fcs;
+  std::vector<cv::Rect>facer;
   cv::equalizeHist( frame_gray, frame_gray );
-  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(64, 64) );//30,30
-  for( size_t i = 0; i < faces.size(); i++ )
+  Rfaces.clear();
+  facer.clear();
+  face_cascade.detectMultiScale( frame_gray, facer, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(64, 64) );//30,30
+  for( size_t i = 0; i < facer.size(); i++ )
   {
-    //
-    /*
-    faces[i].x=faces[i].x-10;
-    faces[i].y=faces[i].y-10;
-    faces[i].width=faces[i].width+20;
-    faces[i].height=faces[i].height+20;
-    */
-    cv::Rect rct(faces[i].x-faces[i].width*0.25,faces[i].y-faces[i].height*0.25,
-      faces[i].width+faces[i].width*2*0.25,faces[i].height+faces[i].height*2*0.25);
-    if (rct.x<0)rct.x=0;
-    if (rct.y<0)rct.y=0;
+    cv::Rect rct(facer[i].x-facer[i].width/4,facer[i].y-facer[i].height/4,
+      facer[i].width+facer[i].width/2,facer[i].height+facer[i].height/2);
+    if (rct.x<0.0)rct.x=0;
+    if (rct.y<0.0)rct.y=0;
     if (rct.x+rct.width>639)rct.width=639-rct.x;
     if (rct.y+rct.height>479)rct.height=479-rct.y;
-    cv::Mat faceROI = frame_gray( rct );//faces[i]
-    //cv::resize(faceROI,faceROI,cv:Size(80,))
+    Rfaces.push_back(rct);
+
+    //cout<<"roi rx: "<<rct.x<<",ry: "<<rct.y<<",rw: "<<rct.width<<", rh: "<<rct.height<<"\n";
+    cv::Mat faceROI = frame_gray( rct );
     fcs.push_back(faceROI);
   }
   return fcs;
 }
 
-bool is_point_in_rect(float x,float y,cv::Rect rct)
+bool is_point_in_rect(int x,int y,cv::Rect rct)
 {
   return ((x>=rct.x) && (x<=rct.x+rct.width) && (y>=rct.y) && (y<=rct.y+rct.height));
-}
-bool rects_overlap(cv::Rect r1,cv::Rect r2)
-{
-  return (
-    is_point_in_rect(r1.x,r1.y,r2)||
-    is_point_in_rect(r1.x+r1.width,r1.y,r2)||
-    is_point_in_rect(r1.x,r1.y+r1.height,r2)||
-    is_point_in_rect(r1.x+r1.width,r1.y+r1.height,r2)
-  );
 }
 
 int get_overlap_id(cv::Rect rct)
@@ -104,6 +93,11 @@ int get_overlap_id(cv::Rect rct)
   std::lock_guard<std::mutex> guard(z_mutex);
   for (int  i=0;i<frv.size();i++)
   {
+    /*//debug
+    std::cout<<"\nfrv index:"<<i<<"x: "<<frv[i].fx<<",y: "<<frv[i].fy<<"\n";
+    std::cout<<"rx: "<<rct.x<<",ry: "<<rct.y<<",rw: "<<rct.width<<", rh: "<<rct.height<<"\n";
+    std::cout<<"bool: "<<is_point_in_rect(frv[i].fx,frv[i].fy,rct)<<"\n";
+    */
     if (is_point_in_rect(frv[i].fx,frv[i].fy,rct))
     {
       return frv[i].id;
@@ -130,7 +124,7 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
   //ROS_INFO("I heard: [%s]", msg->data.c_str());
   //find faces and pass each face with co-ordinates for recognition
   cv::cvtColor(img, img_gray, CV_BGR2GRAY);
-  std::vector<cv::Mat> fcs=getFaces(img_gray);
+  std::vector<cv::Mat> fcs=getFaces(img_gray);//set faces[index]?
   face_id::faces_ids fc_ids;
   //std::vector<face_id::face_id> fc_ids;
 /*
@@ -161,7 +155,8 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     }
     //update message to send
     face_id::f_id fid;
-    fid.id=get_overlap_id(faces[index]);
+    //std::cout<<"compare: Rfaces="<<Rfaces.size()<<" Scores="<<scores.size()<<" mats="<<fcs.size()<<"\n";
+    fid.id=get_overlap_id(Rfaces[i]);//Rfaces[index] wrong
     fid.name=((score>0.8)?get_name_from_gallery(index):"stranger");
     fid.confidence=score;
     if (score>0.8)fc_ids.faces.push_back(fid);
@@ -215,6 +210,7 @@ void faces_cb(const pi_face_tracker::FacesConstPtr& msg)
   {
     //
     fr.id=msg->faces[i].id;
+    //std::cout<<"id: "<<fr.id<<"\n";
     //convert x,y to pixels from 3d xyz
     xx=msg->faces[i].point.x;//z
     yy=msg->faces[i].point.y;//x
@@ -222,6 +218,7 @@ void faces_cb(const pi_face_tracker::FacesConstPtr& msg)
     double dp=xx/k_const;
     fr.fy=(pic_height/2.0)-(zz/dp);
     fr.fx=(pic_width/2.0)-(yy/dp);
+    //std::cout<<"fx: "<<fr.fx<<", fy: "<<fr.fy<<"\n";
     frv.push_back(fr);
   }
 }
@@ -243,6 +240,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "faceid");
   ros::NodeHandle n;
+  Rfaces.clear();
   //param to know path of gallery and gallery description file
   n.param<string>("gallery_dir",gDir,"gallery_dir");
   n.param<string>("gallery_info_file",gInfo,"gallery_dir/gallery_info.txt");
