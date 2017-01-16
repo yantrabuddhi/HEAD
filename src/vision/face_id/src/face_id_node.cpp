@@ -221,7 +221,7 @@ void faces_cb(const pi_face_tracker::FacesConstPtr& msg)
     zz=msg->faces[i].point.z;//y
     double dp=xx/k_const;
     fr.fy=(pic_width/2.0)-(zz/dp);
-    fr.fz=(pic_height/2.0)-(yy/dp);
+    fr.fx=(pic_height/2.0)-(yy/dp);
     frv.push_back(fr);
   }
 }
