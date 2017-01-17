@@ -159,7 +159,7 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     fid.id=get_overlap_id(Rfaces[i]);//Rfaces[index] wrong
     fid.name=((score>0.8)?get_name_from_gallery(index):"stranger");
     fid.confidence=score;
-    if (score>0.8)fc_ids.faces.push_back(fid);
+    if ((score>0.8) && (fid.id!=0))fc_ids.faces.push_back(fid);
     //std::cout<<"\n"<<target[index].file.name.toStdString()<<"\n";
   }
   //publish message
@@ -189,7 +189,7 @@ void map_image2name(string line)
   string file,name;
   unsigned int pos = line.find( "," );
   if (pos<1) return;
-  file= trim(line.substr( 0, pos ));
+  file= gDir+"/"+trim(line.substr( 0, pos ));
   name= trim(line.substr(pos+1,line.length()-pos-1));
   file2name[file]=name;
 }
