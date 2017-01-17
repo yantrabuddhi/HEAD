@@ -11,5 +11,4 @@ Wenwei_Huang.jpg,wenwei
 amen.jpg,amen
 ralf.jpg,ralf
 ralf2.jpg,ralf
-sanny.jpg,sanny
 misgana.jpg,misgana
