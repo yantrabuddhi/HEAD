@@ -9,6 +9,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <pi_face_tracker/Face.h>
 #include <pi_face_tracker/Faces.h>
+#include <pi_face_tracker/FaceEvent.h>//
 #include <face_id/f_id.h>
 #include <face_id/faces_ids.h>
 
@@ -115,7 +116,7 @@ public:
     }
     return name;
   }
-};
+}face_ob;
 
 std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
 {
@@ -219,7 +220,11 @@ void image_cb(const sensor_msgs::ImageConstPtr& msg)
     fid.id=get_overlap_id(Rfaces[i]);//Rfaces[index] wrong
     fid.name=((score>0.8)?get_name_from_gallery(index):"stranger");
     fid.confidence=score;
-    if ((score>0.8) && (fid.id!=0))fc_ids.faces.push_back(fid);
+    if ((score>0.8) && (fid.id!=0)){
+      face_ob.observed(fid.id,fid.name);
+      fid.name=face_ob.get_name_from_id(fid.id);
+      fc_ids.faces.push_back(fid);
+    }
     //std::cout<<"\n"<<target[index].file.name.toStdString()<<"\n";
   }
   //publish message
@@ -253,7 +258,13 @@ void map_image2name(string line)
   name= trim(line.substr(pos+1,line.length()-pos-1));
   file2name[file]=name;
 }
-
+void face_event_cb(const pi_face_tracker::FaceEventConstPtr& msg)
+{
+  if (msg->face_event=="lost_face")
+  {
+    face_ob.remove_id(msg->face_id);
+  }
+}
 void faces_cb(const pi_face_tracker::FacesConstPtr& msg)
 {
   const float pic_width=640.0;//pixels
@@ -328,6 +339,7 @@ int main(int argc, char** argv)
   ros::Subscriber sub = n.subscribe("/camera/image_raw", 2, image_cb);
   ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb);
   //subscribe to face lost
+  ros::Subscriber sub_face_events = n.subscribe("/camera/face_event", 50, &face_event_cb);
   //need rect of face
   faces_pub = n.advertise<face_id::faces_ids>("/camera/face_recognition", 1);
   ros::spin();
