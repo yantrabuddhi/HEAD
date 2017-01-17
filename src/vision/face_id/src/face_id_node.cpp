@@ -57,6 +57,66 @@ struct face_pix{
 };
 std::vector<face_pix>frv;
 
+class face_obs
+{
+  const int max_obs=255;
+  std::map<int,std::map<string,int>> face_id_score;
+  std::map<int,std::map<string,int>>::iterator it;
+  std::map<string,int>::iterator it2;
+public:
+  void remove_id(int fid)
+  {
+    it=face_id_score.find(fid);
+    if (it!=face_id_score.end()){
+      face_id_score.erase(it);
+    }
+  }
+  void observed(int fid,string name)
+  {
+    it=face_id_score.find(fid);
+    if (it!=face_id_score.end()){
+      it2=face_id_score[fid].find(name);
+      if (it2!=face_id_score[fid].end()){
+        if (face_id_score[fid][name]<1){
+          return;
+        }
+        face_id_score[fid][name]++;
+        if (face_id_score[fid][name]>=max_obs){
+          face_id_score[fid][name]=max_obs;
+          //turn all other names to 0
+          for (it2=face_id_score[fid].begin();it2!=face_id_score[fid].end();++it2)
+          {
+            if (it2->first!=name)it2->second=0;
+          }
+        }
+      }else{
+        face_id_score[fid][name]=1;
+      }
+    }else{
+      std::map<string,int>dat;
+      dat[name]=1;
+      face_id_score[fid]=dat;
+    }
+  }//observed
+  string get_name_from_id(int fid)
+  {
+    //loop and get highest scoring name
+    int score=0;
+    string name="";
+    it=face_id_score.find(fid);
+    if (it!=face_id_score.end()){
+      for (it2=face_id_score[fid].begin();it2!=face_id_score[fid].end();++it2)
+      {
+        if (it2->second>score){
+          score=it2->second;
+          name=it2->first;
+        }
+      }
+    }
+    return name;
+  }
+};
+
 std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
 {
   //
@@ -267,6 +327,7 @@ int main(int argc, char** argv)
   //
   ros::Subscriber sub = n.subscribe("/camera/image_raw", 2, image_cb);
   ros::Subscriber sub_face = n.subscribe("/camera/face_locations", 1, &faces_cb);
+  //subscribe to face lost
   //need rect of face
   faces_pub = n.advertise<face_id::faces_ids>("/camera/face_recognition", 1);
   ros::spin();
