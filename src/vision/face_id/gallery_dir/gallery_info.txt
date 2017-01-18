@@ -6,9 +6,3 @@ ben5.jpg,ben
 David_Hanson.jpg,david
 dh2.jpg,david
 dh3.jpg,david
-Man_Hin_Leung.jpg,manhin
-Wenwei_Huang.jpg,wenwei
-amen.jpg,amen
-ralf.jpg,ralf
-ralf2.jpg,ralf
-misgana.jpg,misgana
