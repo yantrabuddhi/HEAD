@@ -242,7 +242,7 @@ std::vector<cv::Mat> getFaces(cv::Mat frame_gray)
 				face_ob.observed(fid.id,fid.name);
 				fid.name=face_ob.get_name_from_id(fid.id);
 				int obs=face_ob.get_obs_from_id(fid.id);//new
-				if (obs>=20)//new
+				if (obs>=10)//new
 				fc_ids.faces.push_back(fid);
 			}
 			//std::cout<<"\n"<<target[index].file.name.toStdString()<<"\n";
